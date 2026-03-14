@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTodoFile, serializeTodoFile } from "./storage";
+import { parseTodoFile, serializeTodoFile, todayString } from "./storage";
 import { TodoFile } from "./types";
 
 const SAMPLE = `# Claude Todo
@@ -60,6 +60,32 @@ describe("parseTodoFile", () => {
     expect(result.notStarted).toHaveLength(1);
     expect(result.notStarted[0].title).toBe("Simple task");
     expect(result.notStarted[0].project).toBeUndefined();
+  });
+
+  it("handles Windows paths with colons in directory", () => {
+    const input = `## Not Started\n- [ ] Task | directory:C:\\Users\\nick\\app | created:2026-03-14\n`;
+    const result = parseTodoFile(input);
+    expect(result.notStarted[0].directory).toBe("C:\\Users\\nick\\app");
+  });
+
+  it("ignores lines before any section header", () => {
+    const input = `# Claude Todo\n\nSome random text\n- [ ] Orphan task\n\n## Not Started\n- [ ] Real task\n`;
+    const result = parseTodoFile(input);
+    expect(result.notStarted).toHaveLength(1);
+    expect(result.notStarted[0].title).toBe("Real task");
+  });
+
+  it("ignores malformed lines", () => {
+    const input = `## Not Started\n- [] Missing space\n- [x] Valid done item\n- Not a checkbox\n`;
+    const result = parseTodoFile(input);
+    expect(result.notStarted).toHaveLength(1);
+    expect(result.notStarted[0].title).toBe("Valid done item");
+  });
+
+  it("parses single flag without trailing comma", () => {
+    const input = `## Not Started\n- [ ] Task | flags:--dangerously-skip-permissions\n`;
+    const result = parseTodoFile(input);
+    expect(result.notStarted[0].flags).toEqual(["--dangerously-skip-permissions"]);
   });
 });
 
@@ -181,5 +207,49 @@ describe("round-trip", () => {
     const parsed = parseTodoFile(text1);
     const text2 = serializeTodoFile(parsed);
     expect(text2).toBe(text1);
+  });
+
+  it("round-trips all fields across all sections", () => {
+    const file: TodoFile = {
+      notStarted: [{
+        title: "Full item",
+        project: "/old/path",
+        directory: "C:/new/path",
+        flags: ["--dangerously-skip-permissions", "--verbose"],
+        extraArgs: "--model opus",
+        created: "2026-03-14",
+      }],
+      inProgress: [{
+        title: "Active task",
+        directory: "/projects/foo",
+        flags: ["--dangerously-skip-permissions"],
+        sessionId: "abc123",
+        started: "2026-03-14",
+      }],
+      done: [{
+        title: "Finished task",
+        directory: "/projects/bar",
+        extraArgs: "--effort high",
+        sessionId: "def456",
+        completed: "2026-03-14",
+      }],
+    };
+    const text = serializeTodoFile(file);
+    const parsed = parseTodoFile(text);
+    const text2 = serializeTodoFile(parsed);
+    expect(parsed).toEqual(file);
+    expect(text2).toBe(text);
+  });
+});
+
+describe("todayString", () => {
+  it("returns a YYYY-MM-DD string", () => {
+    const result = todayString();
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("returns today's date", () => {
+    const expected = new Date().toISOString().slice(0, 10);
+    expect(todayString()).toBe(expected);
   });
 });

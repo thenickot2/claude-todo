@@ -8,6 +8,48 @@ export function terminalTitle(taskTitle: string): string {
   return `Claude: ${taskTitle}`;
 }
 
+/** Build the CLI arguments for the `claude` command. */
+export function buildClaudeArgs(
+  title: string,
+  projectPath: string | undefined,
+  flags: string[] | undefined,
+  extraArgs: string | undefined,
+): string[] {
+  const args = ["--name", title];
+  if (projectPath) {
+    args.push("--add-dir", projectPath);
+  }
+  if (flags) {
+    args.push(...flags);
+  }
+  if (extraArgs) {
+    args.push(...extraArgs.split(/\s+/).filter(Boolean));
+  }
+  return args;
+}
+
+/** Build the full `wt` arguments including the claude subcommand. */
+export function buildWtArgs(
+  title: string,
+  projectPath: string | undefined,
+  claudeArgs: string[],
+): string[] {
+  const tabTitle = terminalTitle(title);
+  const args = [
+    "--window",
+    "new",
+    "new-tab",
+    "--title",
+    tabTitle,
+    "--suppressApplicationTitle",
+  ];
+  if (projectPath) {
+    args.push("-d", projectPath);
+  }
+  args.push("claude", ...claudeArgs);
+  return args;
+}
+
 /**
  * Launch Claude Code in a new Windows Terminal tab.
  * The `wt` command opens the terminal; `claude` runs interactively inside it.
@@ -21,33 +63,8 @@ export async function launchSession(
   extraArgs: string | undefined,
   onDone: () => void,
 ): Promise<ClaudeSession> {
-  const claudeArgs = ["--name", title];
-  if (projectPath) {
-    claudeArgs.push("--add-dir", projectPath);
-  }
-  if (flags) {
-    claudeArgs.push(...flags);
-  }
-  if (extraArgs) {
-    claudeArgs.push(...extraArgs.split(/\s+/).filter(Boolean));
-  }
-
-  // Launch claude in its own Windows Terminal window with a locked title
-  // Using --window new so we can close this window independently
-  const tabTitle = terminalTitle(title);
-  const wtArgs = [
-    "--window",
-    "new",
-    "new-tab",
-    "--title",
-    tabTitle,
-    "--suppressApplicationTitle",
-  ];
-  // Set the terminal's starting directory so Claude opens in the right place
-  if (projectPath) {
-    wtArgs.push("-d", projectPath);
-  }
-  wtArgs.push("claude", ...claudeArgs);
+  const claudeArgs = buildClaudeArgs(title, projectPath, flags, extraArgs);
+  const wtArgs = buildWtArgs(title, projectPath, claudeArgs);
 
   const cmd = Command.create("wt", wtArgs);
 
