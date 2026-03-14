@@ -23,6 +23,7 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "2.10.3", features = [] }
 tauri-plugin-fs = { version = "2", features = ["watch"] }
 tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

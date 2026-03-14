@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { TodoFile, TodoItem, TodoStatus } from "./types";
 import { loadTodos, saveTodos, watchTodos } from "./fileio";
 import { todayString } from "./storage";
 import { launchSession, resumeSession, terminalTitle } from "./claude";
-import { closeTerminalByTitle, focusTerminalByTitle } from "./windowmgmt";
+import {
+  closeTerminalByTitle,
+  focusTerminalByTitle,
+  findTerminalWindows,
+} from "./windowmgmt";
 
 function App() {
   const [todos, setTodos] = useState<TodoFile | null>(null);
@@ -11,6 +16,11 @@ function App() {
   const [newTitle, setNewTitle] = useState("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [runningTitles, setRunningTitles] = useState<Set<string>>(new Set());
+  const [formExpanded, setFormExpanded] = useState(false);
+  const [formDirectory, setFormDirectory] = useState("");
+  const [formFlags, setFormFlags] = useState<string[]>([]);
+  const [formExtraArgs, setFormExtraArgs] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +43,31 @@ function App() {
     };
   }, [load]);
 
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const windows = await findTerminalWindows();
+        setRunningTitles(new Set(windows.map((w) => w.title)));
+      } catch {
+        // Window enumeration might fail
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isRunning = useCallback(
+    (item: TodoItem): boolean => {
+      const expected = terminalTitle(item.title);
+      for (const title of runningTitles) {
+        if (title.includes(expected)) return true;
+      }
+      return false;
+    },
+    [runningTitles],
+  );
+
   const save = async (updated: TodoFile) => {
     setTodos(updated);
     try {
@@ -43,11 +78,59 @@ function App() {
     }
   };
 
-  const addTodo = async () => {
+  const handleAddSubmit = () => {
+    if (!newTitle.trim()) return;
+    if (!formExpanded) {
+      setFormExpanded(true);
+      return;
+    }
+    createTodo();
+  };
+
+  const createTodo = async () => {
     if (!newTitle.trim() || !todos) return;
-    const item: TodoItem = { title: newTitle.trim(), created: todayString() };
+    const item: TodoItem = {
+      title: newTitle.trim(),
+      created: todayString(),
+    };
+    if (formDirectory.trim()) {
+      item.directory = formDirectory.trim();
+    }
+    if (formFlags.length > 0) {
+      item.flags = [...formFlags];
+    }
+    if (formExtraArgs.trim()) {
+      item.extraArgs = formExtraArgs.trim();
+    }
     await save({ ...todos, notStarted: [...todos.notStarted, item] });
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewTitle("");
+    setFormExpanded(false);
+    setFormDirectory("");
+    setFormFlags([]);
+    setFormExtraArgs("");
+  };
+
+  const browseDirectory = async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (selected && typeof selected === "string") {
+        setFormDirectory(selected);
+      }
+    } catch {
+      // User cancelled or dialog failed
+    }
+  };
+
+  const toggleFlag = (flag: string) => {
+    setFormFlags((prev) =>
+      prev.includes(flag)
+        ? prev.filter((f) => f !== flag)
+        : [...prev, flag],
+    );
   };
 
   const deleteTodo = async (status: TodoStatus, index: number) => {
@@ -114,7 +197,8 @@ function App() {
       if (item.sessionId) {
         await resumeSession(item.sessionId, () => {});
       } else {
-        await launchSession(item.title, item.project, () => {});
+        const dir = item.directory || item.project;
+        await launchSession(item.title, dir, item.flags, item.extraArgs, () => {});
       }
     } catch (e) {
       setError(`Failed to launch Claude: ${e}`);
@@ -174,7 +258,7 @@ function App() {
         className="add-form"
         onSubmit={(e) => {
           e.preventDefault();
-          addTodo();
+          handleAddSubmit();
         }}
       >
         <input
@@ -182,9 +266,81 @@ function App() {
           placeholder="Add a new task..."
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && formExpanded) {
+              resetForm();
+            }
+          }}
         />
-        <button type="submit">Add</button>
+        {!formExpanded && (
+          <button type="submit" disabled={!newTitle.trim()}>
+            Add
+          </button>
+        )}
       </form>
+
+      {formExpanded && (
+        <div className="add-form-expanded">
+          <div className="form-row">
+            <label>Directory</label>
+            <input
+              type="text"
+              placeholder="Project directory (optional)"
+              value={formDirectory}
+              onChange={(e) => setFormDirectory(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn-sm"
+              onClick={browseDirectory}
+            >
+              Browse
+            </button>
+          </div>
+
+          <div className="form-row">
+            <label>Flags</label>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className={`flag-toggle${formFlags.includes("--dangerously-skip-permissions") ? " active" : ""}`}
+                onClick={() =>
+                  toggleFlag("--dangerously-skip-permissions")
+                }
+              >
+                Skip Permissions
+              </button>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <label>Extra args</label>
+            <input
+              type="text"
+              placeholder="Additional CLI arguments (optional)"
+              value={formExtraArgs}
+              onChange={(e) => setFormExtraArgs(e.target.value)}
+            />
+          </div>
+
+          <div className="add-form-actions">
+            <button
+              type="button"
+              className="btn-cancel"
+              onClick={resetForm}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-create"
+              onClick={createTodo}
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      )}
 
       <Section
         label="Not Started"
@@ -196,6 +352,7 @@ function App() {
         onStartEdit={startEdit}
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
+        isRunning={isRunning}
         actions={[
           { label: "Start", handler: startClaude, style: "accent" },
           { label: "Done", handler: (s, i) => moveTodo(s, i, "done") },
@@ -212,9 +369,11 @@ function App() {
         onStartEdit={startEdit}
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
-        actions={[
-          { label: "Focus", handler: focusClaude },
-          { label: "Start", handler: startClaude, style: "accent" },
+        isRunning={isRunning}
+        actions={(item) => [
+          ...(isRunning(item)
+            ? [{ label: "Focus", handler: focusClaude }]
+            : [{ label: "Start", handler: startClaude, style: "accent" as const }]),
           { label: "Stop", handler: stopClaude },
           { label: "Done", handler: doneClaude },
         ]}
@@ -230,6 +389,7 @@ function App() {
         onStartEdit={startEdit}
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
+        isRunning={isRunning}
         actions={[
           { label: "Reopen", handler: (s, i) => moveTodo(s, i, "not-started") },
         ]}
@@ -254,7 +414,16 @@ interface SectionProps {
   onStartEdit: (key: string, title: string) => void;
   onCommitEdit: (status: TodoStatus, index: number) => void;
   onDelete: (status: TodoStatus, index: number) => void;
-  actions: Action[];
+  isRunning: (item: TodoItem) => boolean;
+  actions: Action[] | ((item: TodoItem) => Action[]);
+}
+
+function flagLabel(flag: string): string {
+  const labels: Record<string, string> = {
+    "--dangerously-skip-permissions": "skip-perms",
+    "--verbose": "verbose",
+  };
+  return labels[flag] || flag.replace(/^--/, "");
 }
 
 function Section({
@@ -267,6 +436,7 @@ function Section({
   onStartEdit,
   onCommitEdit,
   onDelete,
+  isRunning,
   actions,
 }: SectionProps) {
   const isDone = status === "done";
@@ -281,9 +451,17 @@ function Section({
         {items.map((item, i) => {
           const key = `${status}-${i}`;
           const isEditing = editingKey === key;
+          const running = isRunning(item);
+          const itemActions =
+            typeof actions === "function" ? actions(item) : actions;
 
           return (
-            <li key={key} className={`todo-item${isDone ? " done" : ""}`}>
+            <li
+              key={key}
+              className={`todo-item${isDone ? " done" : ""}${running ? " running" : ""}`}
+            >
+              {running && <span className="status-dot running" />}
+
               {isEditing ? (
                 <input
                   className="todo-title-input"
@@ -302,16 +480,28 @@ function Section({
                   onDoubleClick={() => onStartEdit(key, item.title)}
                 >
                   {item.title}
-                  {item.project && (
-                    <span className="todo-project">
-                      {item.project.split("/").pop()}
+                  {(item.directory || item.project) && (
+                    <span className="todo-directory">
+                      {(item.directory || item.project || "")
+                        .split(/[/\\]/)
+                        .pop()}
                     </span>
+                  )}
+                  {item.flags &&
+                    item.flags.length > 0 &&
+                    item.flags.map((flag) => (
+                      <span key={flag} className="flag-pill">
+                        {flagLabel(flag)}
+                      </span>
+                    ))}
+                  {item.extraArgs && (
+                    <span className="todo-extra-args">{item.extraArgs}</span>
                   )}
                 </span>
               )}
 
               <div className="todo-actions">
-                {actions.map((action) => (
+                {itemActions.map((action) => (
                   <button
                     key={action.label}
                     className={`btn-sm${action.style ? ` ${action.style}` : ""}`}

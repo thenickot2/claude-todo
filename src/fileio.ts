@@ -7,17 +7,20 @@ import {
   watch,
 } from "@tauri-apps/plugin-fs";
 import type { UnwatchFn } from "@tauri-apps/plugin-fs";
-import { homeDir, join } from "@tauri-apps/api/path";
+import { appDataDir, homeDir, join } from "@tauri-apps/api/path";
 import { TodoFile } from "./types";
 import { parseTodoFile, serializeTodoFile } from "./storage";
 
-const DIR_NAME = ".claude-todo";
 const FILE_NAME = "todos.md";
 const LOCK_NAME = "todos.md.lock";
 
 async function getTodoDir(): Promise<string> {
+  return await appDataDir();
+}
+
+async function getOldTodoDir(): Promise<string> {
   const home = await homeDir();
-  return await join(home, DIR_NAME);
+  return await join(home, ".claude-todo");
 }
 
 async function getTodoPath(): Promise<string> {
@@ -59,6 +62,31 @@ async function ensureDir(): Promise<void> {
   const dir = await getTodoDir();
   if (!(await exists(dir))) {
     await mkdir(dir, { recursive: true });
+  }
+  // Migrate from old ~/.claude-todo location if it exists
+  await migrateOldDir();
+}
+
+let migrationDone = false;
+async function migrateOldDir(): Promise<void> {
+  if (migrationDone) return;
+  migrationDone = true;
+  try {
+    const oldDir = await getOldTodoDir();
+    const oldFile = await join(oldDir, FILE_NAME);
+    if (!(await exists(oldFile))) return;
+
+    const newDir = await getTodoDir();
+    const newFile = await join(newDir, FILE_NAME);
+    // Only migrate if the new location doesn't already have data
+    if (!(await exists(newFile))) {
+      const content = await readTextFile(oldFile);
+      await writeTextFile(newFile, content);
+    }
+    // Clean up old directory
+    await remove(oldDir, { recursive: true });
+  } catch {
+    // Migration is best-effort
   }
 }
 

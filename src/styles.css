@@ -1,34 +1,71 @@
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   font-weight: 400;
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  color: rgb(55, 53, 47);
+  background-color: #F7F6F3;
 
-  --bg-section: #ffffff;
-  --border: #e0e0e0;
-  --accent: #5b6ee1;
-  --accent-hover: #4a5cc7;
-  --danger: #d94f4f;
+  --fg-primary: rgb(55, 53, 47);
+  --fg-secondary: rgba(55, 53, 47, 0.65);
+  --fg-muted: rgba(55, 53, 47, 0.4);
+  --bg-primary: #FFFFFF;
+  --bg-surface: #F7F6F3;
+  --bg-hover: rgba(55, 53, 47, 0.04);
+  --bg-active: rgba(55, 53, 47, 0.08);
+  --border-subtle: rgba(55, 53, 47, 0.09);
+  --border-medium: rgba(55, 53, 47, 0.16);
+  --accent: rgb(35, 131, 226);
+  --accent-hover: rgb(24, 109, 196);
+  --accent-bg: rgba(35, 131, 226, 0.08);
+  --focus-ring: rgba(35, 131, 226, 0.28);
+  --danger: #D44C47;
   --danger-hover: #c43c3c;
-  --text-muted: #888;
-  --done-text: #999;
+  --danger-bg: rgba(212, 76, 71, 0.08);
+  --success: #448361;
+  --success-bg: rgba(68, 131, 97, 0.08);
+  --warning: #CB912F;
+  --warning-bg: rgba(203, 145, 47, 0.08);
+
+  /* Backward-compat aliases */
+  --bg-section: var(--bg-primary);
+  --border: var(--border-subtle);
+  --text-muted: var(--fg-muted);
+  --done-text: var(--fg-muted);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color: #f6f6f6;
-    background-color: #1a1a2e;
+    color: rgba(255, 255, 255, 0.9);
+    background-color: #2F3437;
 
-    --bg-section: #252540;
-    --border: #3a3a5c;
-    --accent: #7c8cf5;
-    --accent-hover: #6b7ce8;
-    --danger: #e06060;
-    --danger-hover: #d04040;
-    --text-muted: #888;
-    --done-text: #777;
+    --fg-primary: rgba(255, 255, 255, 0.9);
+    --fg-secondary: rgba(255, 255, 255, 0.6);
+    --fg-muted: rgba(255, 255, 255, 0.4);
+    --bg-primary: #2F3437;
+    --bg-surface: #373C3F;
+    --bg-hover: rgba(255, 255, 255, 0.04);
+    --bg-active: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.09);
+    --border-medium: rgba(255, 255, 255, 0.16);
+    --accent: rgb(35, 131, 226);
+    --accent-hover: rgb(24, 109, 196);
+    --accent-bg: rgba(35, 131, 226, 0.08);
+    --focus-ring: rgba(35, 131, 226, 0.28);
+    --danger: #FF7369;
+    --danger-hover: #e0605a;
+    --danger-bg: rgba(255, 115, 105, 0.08);
+    --success: #4DAB9A;
+    --success-bg: rgba(77, 171, 154, 0.08);
+    --warning: #FFDC49;
+    --warning-bg: rgba(255, 220, 73, 0.08);
+
+    /* Backward-compat aliases */
+    --bg-section: var(--bg-primary);
+    --border: var(--border-subtle);
+    --text-muted: var(--fg-muted);
+    --done-text: var(--fg-muted);
   }
 }
 
@@ -39,7 +76,7 @@
 }
 
 .app {
-  padding: 1.5rem;
+  padding: 24px;
   max-width: 700px;
   margin: 0 auto;
   min-height: 100vh;
@@ -49,69 +86,75 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 24px;
 }
 
 .app-header h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .add-form {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .add-form input {
   flex: 1;
-  padding: 0.5rem 0.75rem;
+  padding: 4px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--bg-section);
   color: inherit;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .add-form input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .add-form button {
-  padding: 0.5rem 1rem;
+  padding: 4px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--accent);
   color: white;
-  font-size: 0.9rem;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 20ms ease-in;
 }
 
-.add-form button:hover {
+.add-form button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 
+.add-form button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .section {
-  margin-bottom: 1.25rem;
+  margin-bottom: 16px;
 }
 
 .section-header {
-  font-size: 0.8rem;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
+  color: var(--fg-secondary);
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .section-count {
   font-weight: 400;
-  font-size: 0.75rem;
+  font-size: 11px;
 }
 
 .todo-list {
@@ -121,12 +164,14 @@
 .todo-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
+  gap: 8px;
+  padding: 4px 8px;
+  min-height: 30px;
   background: var(--bg-section);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  margin-bottom: 0.35rem;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  transition: background 20ms ease-in;
 }
 
 .todo-item.done {
@@ -134,8 +179,12 @@
 }
 
 .todo-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 14px;
+  min-width: 0;
 }
 
 .todo-title.done {
@@ -144,26 +193,26 @@
 }
 
 .todo-project {
-  font-size: 0.75rem;
+  font-size: 11px;
   color: var(--text-muted);
-  margin-left: 0.25rem;
+  margin-left: 4px;
 }
 
 .todo-title-input {
   flex: 1;
-  padding: 0.2rem 0.4rem;
+  padding: 2px 4px;
   border: 1px solid var(--accent);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-section);
   color: inherit;
-  font-size: 0.9rem;
+  font-size: 14px;
 }
 
 .todo-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 4px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 150ms ease-in-out;
 }
 
 .todo-item:hover .todo-actions {
@@ -171,17 +220,18 @@
 }
 
 .btn-sm {
-  padding: 0.2rem 0.5rem;
+  padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: inherit;
-  font-size: 0.75rem;
+  font-size: 12px;
   cursor: pointer;
+  transition: background 20ms ease-in;
 }
 
 .btn-sm:hover {
-  background: var(--border);
+  background: var(--bg-hover);
 }
 
 .btn-sm.accent {
@@ -190,8 +240,8 @@
 }
 
 .btn-sm.accent:hover {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .btn-sm.danger {
@@ -200,17 +250,17 @@
 }
 
 .btn-sm.danger:hover {
-  background: var(--danger);
-  color: white;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .error-banner {
-  padding: 0.75rem;
+  padding: 8px 12px;
   background: var(--danger);
   color: white;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
+  border-radius: 3px;
+  margin-bottom: 12px;
+  font-size: 13px;
 }
 
 .todo-item.running {
@@ -225,12 +275,12 @@
 }
 
 .status-dot.running {
-  background: #4caf50;
+  background: var(--success);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 .status-dot.paused {
-  background: #ff9800;
+  background: var(--warning);
 }
 
 @keyframes pulse {
@@ -241,5 +291,155 @@
 .loading {
   color: var(--text-muted);
   text-align: center;
-  padding: 3rem;
+  padding: 48px;
+}
+
+/* --- Utility classes --- */
+
+/* Flag pill badge */
+.flag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 200px;
+  font-size: 11px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* Directory badge */
+.todo-directory {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 200px;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  background: var(--bg-hover);
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Extra args (shown on hover only) */
+.todo-extra-args {
+  font-size: 11px;
+  color: var(--fg-muted);
+  opacity: 0;
+  transition: opacity 150ms ease-in-out;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.todo-item:hover .todo-extra-args {
+  opacity: 1;
+}
+
+/* Creation form expanded panel */
+.add-form-expanded {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-form-expanded .form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-form-expanded label {
+  font-size: 12px;
+  color: var(--fg-secondary);
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.add-form-expanded input[type="text"] {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--fg-primary);
+  font-size: 14px;
+}
+
+.add-form-expanded input[type="text"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.flag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  height: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 200px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 20ms ease-in;
+  user-select: none;
+}
+
+.flag-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.flag-toggle.active {
+  background: var(--warning-bg);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.add-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-cancel {
+  padding: 4px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 20ms ease-in;
+}
+
+.btn-cancel:hover {
+  background: var(--bg-hover);
+}
+
+.btn-create {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 3px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 20ms ease-in;
+}
+
+.btn-create:hover {
+  background: var(--accent-hover);
 }

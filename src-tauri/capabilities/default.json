@@ -10,19 +10,22 @@
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [
-        { "path": "$HOME/.claude-todo" },
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
         { "path": "$HOME/.claude-todo/**" }
       ]
     },
     {
       "identifier": "fs:allow-write-text-file",
       "allow": [
-        { "path": "$HOME/.claude-todo/**" }
+        { "path": "$APPDATA/**" }
       ]
     },
     {
       "identifier": "fs:allow-exists",
       "allow": [
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
         { "path": "$HOME/.claude-todo" },
         { "path": "$HOME/.claude-todo/**" }
       ]
@@ -30,20 +33,22 @@
     {
       "identifier": "fs:allow-mkdir",
       "allow": [
-        { "path": "$HOME/.claude-todo" },
-        { "path": "$HOME/.claude-todo/**" }
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" }
       ]
     },
     {
       "identifier": "fs:allow-remove",
       "allow": [
+        { "path": "$APPDATA/**" },
+        { "path": "$HOME/.claude-todo" },
         { "path": "$HOME/.claude-todo/**" }
       ]
     },
     {
       "identifier": "fs:allow-watch",
       "allow": [
-        { "path": "$HOME/.claude-todo/**" }
+        { "path": "$APPDATA/**" }
       ]
     },
     "shell:allow-open",
@@ -62,6 +67,7 @@
       ]
     },
     "shell:allow-stdin-write",
-    "shell:allow-kill"
+    "shell:allow-kill",
+    "dialog:default"
   ]
 }

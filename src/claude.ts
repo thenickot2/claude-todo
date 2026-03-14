@@ -17,11 +17,19 @@ export function terminalTitle(taskTitle: string): string {
 export async function launchSession(
   title: string,
   projectPath: string | undefined,
+  flags: string[] | undefined,
+  extraArgs: string | undefined,
   onDone: () => void,
 ): Promise<ClaudeSession> {
   const claudeArgs = ["--name", title];
   if (projectPath) {
-    claudeArgs.push("--project-directory", projectPath);
+    claudeArgs.push("--add-dir", projectPath);
+  }
+  if (flags) {
+    claudeArgs.push(...flags);
+  }
+  if (extraArgs) {
+    claudeArgs.push(...extraArgs.split(/\s+/).filter(Boolean));
   }
 
   // Launch claude in its own Windows Terminal window with a locked title
@@ -34,9 +42,12 @@ export async function launchSession(
     "--title",
     tabTitle,
     "--suppressApplicationTitle",
-    "claude",
-    ...claudeArgs,
   ];
+  // Set the terminal's starting directory so Claude opens in the right place
+  if (projectPath) {
+    wtArgs.push("-d", projectPath);
+  }
+  wtArgs.push("claude", ...claudeArgs);
 
   const cmd = Command.create("wt", wtArgs);
 

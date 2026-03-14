@@ -32,6 +32,15 @@ function parseItem(line: string): TodoItem | null {
       case "session":
         item.sessionId = value;
         break;
+      case "directory":
+        item.directory = value;
+        break;
+      case "flags":
+        item.flags = value.split(",").map(f => f.trim()).filter(Boolean);
+        break;
+      case "extraArgs":
+        item.extraArgs = value;
+        break;
       case "created":
         item.created = value;
         break;
@@ -51,6 +60,9 @@ function serializeItem(item: TodoItem, done: boolean): string {
   const check = done ? "x" : " ";
   let line = `- [${check}] ${item.title}`;
   if (item.project) line += ` | project:${item.project}`;
+  if (item.directory) line += ` | directory:${item.directory}`;
+  if (item.flags && item.flags.length > 0) line += ` | flags:${item.flags.join(",")}`;
+  if (item.extraArgs) line += ` | extraArgs:${item.extraArgs}`;
   if (item.sessionId) line += ` | session:${item.sessionId}`;
   if (item.created) line += ` | created:${item.created}`;
   if (item.started) line += ` | started:${item.started}`;

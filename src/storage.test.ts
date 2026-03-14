@@ -87,12 +87,81 @@ describe("serializeTodoFile", () => {
   });
 });
 
+describe("parseTodoFile — new fields", () => {
+  it("parses directory, flags, and extraArgs", () => {
+    const input = `## Not Started
+- [ ] Build feature | directory:C:/Users/nick/myapp | flags:--dangerously-skip-permissions,--verbose | extraArgs:--model opus | created:2026-03-14
+`;
+    const result = parseTodoFile(input);
+    expect(result.notStarted[0].directory).toBe("C:/Users/nick/myapp");
+    expect(result.notStarted[0].flags).toEqual(["--dangerously-skip-permissions", "--verbose"]);
+    expect(result.notStarted[0].extraArgs).toBe("--model opus");
+  });
+
+  it("handles items with directory but no flags", () => {
+    const input = `## In Progress
+- [ ] Task | directory:/projects/foo | started:2026-03-14
+`;
+    const result = parseTodoFile(input);
+    expect(result.inProgress[0].directory).toBe("/projects/foo");
+    expect(result.inProgress[0].flags).toBeUndefined();
+    expect(result.inProgress[0].extraArgs).toBeUndefined();
+  });
+});
+
+describe("serializeTodoFile — new fields", () => {
+  it("serializes directory, flags, and extraArgs", () => {
+    const file: TodoFile = {
+      notStarted: [{
+        title: "Task X",
+        directory: "C:/projects/app",
+        flags: ["--dangerously-skip-permissions"],
+        extraArgs: "--model opus",
+        created: "2026-03-14",
+      }],
+      inProgress: [],
+      done: [],
+    };
+    const text = serializeTodoFile(file);
+    expect(text).toContain("directory:C:/projects/app");
+    expect(text).toContain("flags:--dangerously-skip-permissions");
+    expect(text).toContain("extraArgs:--model opus");
+  });
+
+  it("does not serialize empty flags array", () => {
+    const file: TodoFile = {
+      notStarted: [{ title: "No flags", flags: [] }],
+      inProgress: [],
+      done: [],
+    };
+    const text = serializeTodoFile(file);
+    expect(text).not.toContain("flags:");
+  });
+});
+
 describe("round-trip", () => {
   it("parse → serialize → parse produces same data", () => {
     const first = parseTodoFile(SAMPLE);
     const serialized = serializeTodoFile(first);
     const second = parseTodoFile(serialized);
     expect(second).toEqual(first);
+  });
+
+  it("round-trips items with directory, flags, and extraArgs", () => {
+    const file: TodoFile = {
+      notStarted: [{
+        title: "Task X",
+        directory: "C:/projects/app",
+        flags: ["--dangerously-skip-permissions"],
+        extraArgs: "--model opus",
+        created: "2026-03-14",
+      }],
+      inProgress: [],
+      done: [],
+    };
+    const text = serializeTodoFile(file);
+    const parsed = parseTodoFile(text);
+    expect(parsed.notStarted[0]).toEqual(file.notStarted[0]);
   });
 
   it("serialize → parse → serialize produces same text", () => {
