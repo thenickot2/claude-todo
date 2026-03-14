@@ -1,0 +1,245 @@
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  --bg-section: #ffffff;
+  --border: #e0e0e0;
+  --accent: #5b6ee1;
+  --accent-hover: #4a5cc7;
+  --danger: #d94f4f;
+  --danger-hover: #c43c3c;
+  --text-muted: #888;
+  --done-text: #999;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #f6f6f6;
+    background-color: #1a1a2e;
+
+    --bg-section: #252540;
+    --border: #3a3a5c;
+    --accent: #7c8cf5;
+    --accent-hover: #6b7ce8;
+    --danger: #e06060;
+    --danger-hover: #d04040;
+    --text-muted: #888;
+    --done-text: #777;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.app {
+  padding: 1.5rem;
+  max-width: 700px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.add-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.add-form input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-section);
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.add-form input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.add-form button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-form button:hover {
+  background: var(--accent-hover);
+}
+
+.section {
+  margin-bottom: 1.25rem;
+}
+
+.section-header {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-count {
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+.todo-list {
+  list-style: none;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-section);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 0.35rem;
+}
+
+.todo-item.done {
+  opacity: 0.6;
+}
+
+.todo-title {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.todo-title.done {
+  text-decoration: line-through;
+  color: var(--done-text);
+}
+
+.todo-project {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 0.25rem;
+}
+
+.todo-title-input {
+  flex: 1;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg-section);
+  color: inherit;
+  font-size: 0.9rem;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.todo-item:hover .todo-actions {
+  opacity: 1;
+}
+
+.btn-sm {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.btn-sm:hover {
+  background: var(--border);
+}
+
+.btn-sm.accent {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-sm.accent:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-sm.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-sm.danger:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.error-banner {
+  padding: 0.75rem;
+  background: var(--danger);
+  color: white;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.todo-item.running {
+  border-color: var(--accent);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.running {
+  background: #4caf50;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot.paused {
+  background: #ff9800;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.loading {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 3rem;
+}

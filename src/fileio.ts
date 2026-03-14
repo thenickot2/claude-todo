@@ -1,0 +1,122 @@
+import {
+  readTextFile,
+  writeTextFile,
+  exists,
+  mkdir,
+  remove,
+  watch,
+} from "@tauri-apps/plugin-fs";
+import type { UnwatchFn } from "@tauri-apps/plugin-fs";
+import { homeDir, join } from "@tauri-apps/api/path";
+import { TodoFile } from "./types";
+import { parseTodoFile, serializeTodoFile } from "./storage";
+
+const DIR_NAME = ".claude-todo";
+const FILE_NAME = "todos.md";
+const LOCK_NAME = "todos.md.lock";
+
+async function getTodoDir(): Promise<string> {
+  const home = await homeDir();
+  return await join(home, DIR_NAME);
+}
+
+async function getTodoPath(): Promise<string> {
+  const dir = await getTodoDir();
+  return await join(dir, FILE_NAME);
+}
+
+async function getLockPath(): Promise<string> {
+  const dir = await getTodoDir();
+  return await join(dir, LOCK_NAME);
+}
+
+async function acquireLock(): Promise<void> {
+  const lockPath = await getLockPath();
+  // Simple lock: write a lock file, fail if it already exists
+  // In practice, stale locks from crashes are handled by timeout
+  for (let i = 0; i < 10; i++) {
+    if (await exists(lockPath)) {
+      await new Promise((r) => setTimeout(r, 100));
+      continue;
+    }
+    await writeTextFile(lockPath, String(Date.now()));
+    return;
+  }
+  // Force acquire after timeout (stale lock)
+  await writeTextFile(lockPath, String(Date.now()));
+}
+
+async function releaseLock(): Promise<void> {
+  const lockPath = await getLockPath();
+  try {
+    await remove(lockPath);
+  } catch {
+    // Lock already gone, that's fine
+  }
+}
+
+async function ensureDir(): Promise<void> {
+  const dir = await getTodoDir();
+  if (!(await exists(dir))) {
+    await mkdir(dir, { recursive: true });
+  }
+}
+
+const DEFAULT_CONTENT = `# Claude Todo
+
+## Not Started
+
+## In Progress
+
+## Done
+`;
+
+export async function loadTodos(): Promise<TodoFile> {
+  await ensureDir();
+  const path = await getTodoPath();
+
+  if (!(await exists(path))) {
+    await writeTextFile(path, DEFAULT_CONTENT);
+    return parseTodoFile(DEFAULT_CONTENT);
+  }
+
+  const content = await readTextFile(path);
+  return parseTodoFile(content);
+}
+
+export async function watchTodos(
+  onChange: (file: TodoFile) => void,
+): Promise<UnwatchFn> {
+  await ensureDir();
+  const path = await getTodoPath();
+
+  // Ensure the file exists before watching
+  if (!(await exists(path))) {
+    const DEFAULT_CONTENT = `# Claude Todo\n\n## Not Started\n\n## In Progress\n\n## Done\n`;
+    await writeTextFile(path, DEFAULT_CONTENT);
+  }
+
+  return watch(path, async (event) => {
+    // Only reload on modify events, skip lock file changes
+    if (event.type && typeof event.type === "object" && "modify" in event.type) {
+      try {
+        const content = await readTextFile(path);
+        onChange(parseTodoFile(content));
+      } catch {
+        // File might be mid-write, ignore
+      }
+    }
+  }, { delayMs: 500 });
+}
+
+export async function saveTodos(file: TodoFile): Promise<void> {
+  await ensureDir();
+  await acquireLock();
+  try {
+    const path = await getTodoPath();
+    const content = serializeTodoFile(file);
+    await writeTextFile(path, content);
+  } finally {
+    await releaseLock();
+  }
+}
