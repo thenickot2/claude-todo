@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { TodoFile, TodoItem, TodoStatus } from "./types";
-import { loadTodos, saveTodos, watchTodos } from "./fileio";
+import { TodoFile, TodoItem, TodoStatus, SessionNotification } from "./types";
+import { loadTodos, saveTodos, watchTodos, watchSignals, removeSignalFile, cleanupStaleSignals } from "./fileio";
 import { todayString } from "./storage";
+import { notificationLabel } from "./notifications";
 import { launchSession, resumeSession, terminalTitle } from "./claude";
 import {
   closeTerminalByTitle,
@@ -21,6 +22,7 @@ function App() {
   const [formDirectory, setFormDirectory] = useState("");
   const [formFlags, setFormFlags] = useState<string[]>([]);
   const [formExtraArgs, setFormExtraArgs] = useState("");
+  const [notifications, setNotifications] = useState<Map<string, SessionNotification>>(new Map());
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +58,30 @@ function App() {
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    cleanupStaleSignals().catch(() => {});
+    let unwatch: (() => void) | undefined;
+    watchSignals((signals) => {
+      const map = new Map<string, SessionNotification>();
+      for (const sig of signals) {
+        const existing = map.get(sig.sessionId);
+        if (!existing || sig.timestamp > existing.timestamp) {
+          map.set(sig.sessionId, sig);
+        }
+      }
+      setNotifications(map);
+    }).then((fn) => { unwatch = fn; });
+    return () => { unwatch?.(); };
+  }, []);
+
+  const getNotification = useCallback(
+    (item: TodoItem): SessionNotification | undefined => {
+      if (!item.sessionId) return undefined;
+      return notifications.get(item.sessionId);
+    },
+    [notifications],
+  );
 
   const isRunning = useCallback(
     (item: TodoItem): boolean => {
@@ -229,7 +255,7 @@ function App() {
     await moveTodo(status, index, "done");
   };
 
-  // Focus = bring terminal window to foreground
+  // Focus = bring terminal window to foreground + clear notification
   const focusClaude = async (status: TodoStatus, index: number) => {
     if (!todos) return;
     const item = getList(todos, status)[index];
@@ -237,6 +263,10 @@ function App() {
       await focusTerminalByTitle(terminalTitle(item.title));
     } catch {
       // Window not found
+    }
+    const notif = getNotification(item);
+    if (notif) {
+      removeSignalFile(notif.fileName).catch(() => {});
     }
   };
 
@@ -351,6 +381,7 @@ function App() {
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
         isRunning={isRunning}
+        getNotification={getNotification}
         actions={[
           { label: "Start", handler: startClaude, style: "accent" },
           { label: "Done", handler: (s, i) => moveTodo(s, i, "done") },
@@ -368,6 +399,7 @@ function App() {
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
         isRunning={isRunning}
+        getNotification={getNotification}
         actions={(item) => [
           ...(isRunning(item)
             ? [{ label: "Focus", handler: focusClaude }]
@@ -388,6 +420,7 @@ function App() {
         onCommitEdit={commitEdit}
         onDelete={deleteTodo}
         isRunning={isRunning}
+        getNotification={getNotification}
         actions={[
           { label: "Reopen", handler: (s, i) => moveTodo(s, i, "not-started") },
         ]}
@@ -413,6 +446,7 @@ interface SectionProps {
   onCommitEdit: (status: TodoStatus, index: number) => void;
   onDelete: (status: TodoStatus, index: number) => void;
   isRunning: (item: TodoItem) => boolean;
+  getNotification: (item: TodoItem) => SessionNotification | undefined;
   actions: Action[] | ((item: TodoItem) => Action[]);
 }
 
@@ -435,6 +469,7 @@ function Section({
   onCommitEdit,
   onDelete,
   isRunning,
+  getNotification,
   actions,
 }: SectionProps) {
   const isDone = status === "done";
@@ -449,15 +484,23 @@ function Section({
         {items.map((item, i) => {
           const isEditing = editingKey === item.id;
           const running = isRunning(item);
+          const notification = getNotification(item);
           const itemActions =
             typeof actions === "function" ? actions(item) : actions;
 
           return (
             <li
               key={item.id}
-              className={`todo-item${isDone ? " done" : ""}${running ? " running" : ""}`}
+              className={`todo-item${isDone ? " done" : ""}${running ? " running" : ""}${notification ? ` has-notification ${notification.type}` : ""}`}
             >
-              {running && <span className="status-dot running" />}
+              {notification ? (
+                <span
+                  className={`status-dot notification ${notification.type}`}
+                  title={notificationLabel(notification.type)}
+                />
+              ) : running ? (
+                <span className="status-dot running" />
+              ) : null}
 
               {isEditing ? (
                 <input

@@ -22,6 +22,7 @@ Claude Todo fills that gap. Your tasks are stored as a plain markdown file. The 
 - **Plain markdown storage** -- All data lives in a single `todos.md` file in your app data directory, human-readable and version-controllable
 - **File watcher** -- External edits to `todos.md` are picked up automatically
 - **Cross-platform** -- Windows (Windows Terminal) and macOS (iTerm2 / Terminal.app)
+- **Idle session alerts** -- Optional integration with Claude Code hooks to show when a session is waiting for input, needs permission, or is asking a question (see [Session Notifications](#session-notifications-optional) below)
 
 ## Install
 
@@ -109,6 +110,178 @@ When you click **Start** on a task, the app opens a new terminal tab running `cl
 - **Backend**: Rust, [Tauri 2.0](https://v2.tauri.app/)
 - **Window management**: Win32 API (Windows), AppleScript (macOS)
 - **Storage**: Plain markdown, no database
+
+## Session Notifications (Optional)
+
+Claude Todo can show live status indicators when a Claude Code session is idle, needs permission, or is asking a question. This works through Claude Code's [hooks system](https://docs.anthropic.com/en/docs/claude-code/hooks) -- a hook writes a small JSON signal file that the app watches.
+
+### How it works
+
+1. You configure a Notification hook in your Claude Code settings
+2. When Claude Code goes idle or needs your attention, the hook writes a signal file to the app's data directory
+3. Claude Todo detects the file and shows a pulsing status dot on the matching task
+4. When you click **Focus** to bring up the terminal, the notification clears automatically
+
+### Setup
+
+**Step 1: Create the hook script**
+
+Save the following two scripts to `~/.claude/hooks/`.
+
+**`notify-todo.sh`** — writes a signal file when Claude needs attention:
+
+<details>
+<summary><strong>Windows</strong> (Git Bash / MSYS2)</summary>
+
+```bash
+#!/bin/bash
+# Claude Code hook: write notification signals for Claude Todo
+SIGNAL_DIR="$APPDATA/com.claude-todo.app/idle-signals"
+mkdir -p "$SIGNAL_DIR"
+INPUT=$(cat -)
+SESSION_ID=$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$SESSION_ID" ]; then
+  echo "$INPUT" > "$SIGNAL_DIR/${SESSION_ID}-$(date +%s%N).json"
+fi
+```
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+```bash
+#!/bin/bash
+# Claude Code hook: write notification signals for Claude Todo
+SIGNAL_DIR="$HOME/Library/Application Support/com.claude-todo.app/idle-signals"
+mkdir -p "$SIGNAL_DIR"
+INPUT=$(cat -)
+SESSION_ID=$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$SESSION_ID" ]; then
+  # macOS date doesn't support %N — use seconds + PID for uniqueness
+  echo "$INPUT" > "$SIGNAL_DIR/${SESSION_ID}-$(date +%s)$$.json"
+fi
+```
+
+</details>
+
+**`clear-todo.sh`** — removes signal files when the user sends a new prompt (Claude is working again):
+
+<details>
+<summary><strong>Windows</strong> (Git Bash / MSYS2)</summary>
+
+```bash
+#!/bin/bash
+# Claude Code hook: clear notification signals when user resumes interaction
+SIGNAL_DIR="$APPDATA/com.claude-todo.app/idle-signals"
+INPUT=$(cat -)
+SESSION_ID=$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$SESSION_ID" ]; then
+  rm -f "$SIGNAL_DIR/${SESSION_ID}"-*.json 2>/dev/null
+fi
+```
+
+</details>
+
+<details>
+<summary><strong>macOS</strong></summary>
+
+```bash
+#!/bin/bash
+# Claude Code hook: clear notification signals when user resumes interaction
+SIGNAL_DIR="$HOME/Library/Application Support/com.claude-todo.app/idle-signals"
+INPUT=$(cat -)
+SESSION_ID=$(echo "$INPUT" | grep -o '"session_id":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$SESSION_ID" ]; then
+  rm -f "$SIGNAL_DIR/${SESSION_ID}"-*.json 2>/dev/null
+fi
+```
+
+</details>
+
+Make both scripts executable:
+```bash
+chmod +x ~/.claude/hooks/notify-todo.sh ~/.claude/hooks/clear-todo.sh
+```
+
+**Step 2: Add the hooks to your Claude Code settings**
+
+Edit `~/.claude/settings.json` and add the following. If you already have other settings in the file, merge the `hooks` key into your existing config.
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/notify-todo.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/notify-todo.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "elicitation_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/notify-todo.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/clear-todo.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+> **Windows note:** Claude Code on Windows runs hooks through Git Bash, so the `bash` prefix and `~/` paths work as-is. `$APPDATA` is set automatically by Windows.
+
+> **macOS note:** The settings file is at `~/.claude/settings.json` (same path). The app data directory is `~/Library/Application Support/com.claude-todo.app/`.
+
+### Lifecycle
+
+1. A task is running — green pulsing dot (terminal detected)
+2. Claude goes idle / needs permission / asks a question — the `Notification` hook writes a signal file — the dot changes to amber / red / blue
+3. The notification clears automatically when **either**:
+   - The user sends a new prompt in the terminal — the `UserPromptSubmit` hook deletes the signal files
+   - The user clicks **Focus** in the app — the app deletes the signal file after bringing up the terminal
+4. Back to green running dot
+
+### Notification types
+
+| Type | Indicator | Meaning |
+|------|-----------|---------|
+| `idle_prompt` | Amber pulsing dot | Claude finished and is waiting for your next prompt |
+| `permission_prompt` | Red pulsing dot | Claude needs you to approve a tool use |
+| `elicitation_dialog` | Blue pulsing dot | Claude is asking you a question |
+
+### Troubleshooting
+
+- **No notifications appearing?** Make sure the hook script is executable and that `session_id` in your signal files matches the session ID stored on your task (visible in `todos.md`).
+- **Stale notifications?** The app automatically cleans up signal files older than 1 hour on startup.
+- **Test the hook manually:**
+  - **Windows:** `echo '{"session_id":"test","notification":{"type":"idle_prompt"}}' | bash ~/.claude/hooks/notify-todo.sh` — check `%APPDATA%/com.claude-todo.app/idle-signals/` for a `.json` file.
+  - **macOS:** `echo '{"session_id":"test","notification":{"type":"idle_prompt"}}' | bash ~/.claude/hooks/notify-todo.sh` — check `~/Library/Application Support/com.claude-todo.app/idle-signals/` for a `.json` file.
 
 ## Contributing
 

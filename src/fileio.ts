@@ -4,12 +4,14 @@ import {
   exists,
   mkdir,
   remove,
+  readDir,
   watch,
 } from "@tauri-apps/plugin-fs";
 import type { UnwatchFn } from "@tauri-apps/plugin-fs";
 import { appDataDir, homeDir, join } from "@tauri-apps/api/path";
-import { TodoFile } from "./types";
+import { TodoFile, SessionNotification } from "./types";
 import { parseTodoFile, serializeTodoFile } from "./storage";
+import { SIGNAL_DIR_NAME, parseSignalFile } from "./notifications";
 
 const FILE_NAME = "todos.md";
 const LOCK_NAME = "todos.md.lock";
@@ -156,5 +158,124 @@ export async function saveTodos(file: TodoFile): Promise<void> {
     await writeTextFile(path, content);
   } finally {
     await releaseLock();
+  }
+}
+
+// --- Signal file I/O for Claude Code notifications ---
+
+let signalDirPath: string | null = null;
+
+async function getSignalDir(): Promise<string> {
+  if (signalDirPath) return signalDirPath;
+  const base = await appDataDir();
+  signalDirPath = await join(base, SIGNAL_DIR_NAME);
+  return signalDirPath;
+}
+
+async function ensureSignalDir(): Promise<string> {
+  const dir = await getSignalDir();
+  if (!(await exists(dir))) {
+    await mkdir(dir, { recursive: true });
+  }
+  return dir;
+}
+
+async function scanSignalDir(): Promise<SessionNotification[]> {
+  const dir = await getSignalDir();
+  if (!(await exists(dir))) return [];
+
+  const entries = await readDir(dir);
+  const signals: SessionNotification[] = [];
+
+  for (const entry of entries) {
+    if (!entry.name || !entry.name.endsWith(".json")) continue;
+    try {
+      const filePath = await join(dir, entry.name);
+      const content = await readTextFile(filePath);
+      const signal = parseSignalFile(entry.name, content);
+      if (signal) signals.push(signal);
+    } catch {
+      // File may have been removed between listing and reading
+    }
+  }
+
+  return signals;
+}
+
+export async function watchSignals(
+  onChange: (signals: SessionNotification[]) => void,
+): Promise<UnwatchFn> {
+  const dir = await ensureSignalDir();
+
+  // Initial scan
+  const initial = await scanSignalDir();
+  onChange(initial);
+
+  return watch(dir, async (event) => {
+    // React to any file event in the signal directory
+    const type = event.type;
+    if (type && typeof type === "object" && ("create" in type || "modify" in type || "remove" in type)) {
+      try {
+        const signals = await scanSignalDir();
+        onChange(signals);
+      } catch (e) {
+        console.warn("Failed to scan signal directory:", e);
+      }
+    }
+  }, { delayMs: 500 });
+}
+
+export async function removeSignalFile(fileName: string): Promise<void> {
+  try {
+    const dir = await getSignalDir();
+    const filePath = await join(dir, fileName);
+    await remove(filePath);
+  } catch {
+    // File may already be gone
+  }
+}
+
+export async function cleanupStaleSignals(maxAgeMs: number = 3600000): Promise<void> {
+  const dir = await getSignalDir();
+  if (!(await exists(dir))) return;
+
+  const entries = await readDir(dir);
+  const now = Date.now();
+
+  for (const entry of entries) {
+    if (!entry.name || !entry.name.endsWith(".json")) continue;
+    try {
+      const filePath = await join(dir, entry.name);
+      const content = await readTextFile(filePath);
+      // Try to extract a timestamp from the filename
+      // Formats: sessionId-<nanoseconds>.json (Windows) or sessionId-<seconds><pid>.json (macOS)
+      // We extract the leading digits after the last dash as seconds-precision
+      const match = entry.name.match(/-(\d+)\.json$/);
+      if (match) {
+        const raw = parseInt(match[1], 10);
+        // Normalize: nanoseconds (>1e15) → ms, seconds (10-digit) → ms, already ms otherwise
+        let fileTimeMs: number;
+        if (raw > 1e15) {
+          fileTimeMs = raw / 1e6; // nanoseconds to ms
+        } else if (raw < 1e12) {
+          fileTimeMs = raw * 1000; // seconds to ms
+        } else {
+          fileTimeMs = raw; // already ms
+        }
+        if (now - fileTimeMs > maxAgeMs) {
+          await remove(filePath);
+          continue;
+        }
+      }
+      // Fallback: if we can't determine age from filename, check if it's parseable
+      // If it's not even valid JSON, remove it
+      try {
+        JSON.parse(content);
+      } catch {
+        await remove(filePath);
+      }
+    } catch {
+      // Skip files we can't read
+    }
   }
 }

@@ -46,6 +46,12 @@
       ]
     },
     {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
       "identifier": "fs:allow-watch",
       "allow": [
         { "path": "$APPDATA/**" }

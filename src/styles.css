@@ -283,9 +283,44 @@
   background: var(--warning);
 }
 
+/* Notification status dots */
+.status-dot.notification {
+  animation: pulse-fast 1s ease-in-out infinite;
+}
+
+.status-dot.notification.idle_prompt {
+  background: var(--warning);
+}
+
+.status-dot.notification.permission_prompt {
+  background: var(--danger);
+}
+
+.status-dot.notification.elicitation_dialog {
+  background: var(--accent);
+}
+
+/* Notification border highlight */
+.todo-item.has-notification {
+  border-color: var(--warning);
+}
+
+.todo-item.has-notification.permission_prompt {
+  border-color: var(--danger);
+}
+
+.todo-item.has-notification.elicitation_dialog {
+  border-color: var(--accent);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .loading {

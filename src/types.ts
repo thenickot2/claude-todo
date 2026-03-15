@@ -18,3 +18,12 @@ export interface TodoFile {
   inProgress: TodoItem[];
   done: TodoItem[];
 }
+
+export type NotificationType = "idle_prompt" | "permission_prompt" | "elicitation_dialog";
+
+export interface SessionNotification {
+  sessionId: string;
+  type: NotificationType;
+  fileName: string;
+  timestamp: number;
+}
