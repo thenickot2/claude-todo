@@ -2,7 +2,7 @@
 
 A lightweight desktop app for managing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) terminal sessions. Think of it as a simple todo list that can launch, focus, pause, and close Claude Code terminals on your behalf.
 
-<!-- ![Claude Todo screenshot](docs/screenshot.png) -->
+![Claude Todo screenshot](docs/screenshot.png)
 
 ## Why
 
