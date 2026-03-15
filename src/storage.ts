@@ -20,12 +20,15 @@ function parseItem(line: string): TodoItem | null {
 
   const parts = match[1].split(" | ");
   const title = parts[0].trim();
-  const item: TodoItem = { title };
+  const item: TodoItem = { id: "", title };
 
   for (let i = 1; i < parts.length; i++) {
     const [key, ...rest] = parts[i].split(":");
     const value = rest.join(":").trim();
     switch (key.trim()) {
+      case "id":
+        item.id = value;
+        break;
       case "project":
         item.project = value;
         break;
@@ -53,12 +56,18 @@ function parseItem(line: string): TodoItem | null {
     }
   }
 
+  // Auto-assign ID for items migrated from older format
+  if (!item.id) {
+    item.id = crypto.randomUUID();
+  }
+
   return item;
 }
 
 function serializeItem(item: TodoItem, done: boolean): string {
   const check = done ? "x" : " ";
   let line = `- [${check}] ${item.title}`;
+  line += ` | id:${item.id}`;
   if (item.project) line += ` | project:${item.project}`;
   if (item.directory) line += ` | directory:${item.directory}`;
   if (item.flags && item.flags.length > 0) line += ` | flags:${item.flags.join(",")}`;

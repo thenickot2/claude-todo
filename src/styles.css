@@ -296,6 +296,12 @@
 
 /* --- Utility classes --- */
 
+.flag-toggles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Flag pill badge */
 .flag-pill {
   display: inline-flex;

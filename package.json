@@ -1,6 +1,6 @@
 {
   "name": "claude-todo",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A native to-do list app that tracks and controls Claude Code terminal sessions",
   "scripts": {
     "dev": "vite",

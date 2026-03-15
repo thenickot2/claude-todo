@@ -7,6 +7,33 @@ export interface ClaudeSession {
 
 const IS_MACOS = navigator.platform.startsWith("Mac");
 
+/** Split a string into args, respecting single and double quotes. */
+export function splitArgs(input: string): string[] {
+  const args: string[] = [];
+  let current = "";
+  let inQuote: string | null = null;
+  for (const ch of input) {
+    if (inQuote) {
+      if (ch === inQuote) {
+        inQuote = null;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      inQuote = ch;
+    } else if (/\s/.test(ch)) {
+      if (current) {
+        args.push(current);
+        current = "";
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) args.push(current);
+  return args;
+}
+
 export function terminalTitle(taskTitle: string): string {
   return `Claude: ${taskTitle}`;
 }
@@ -26,7 +53,7 @@ export function buildClaudeArgs(
     args.push(...flags);
   }
   if (extraArgs) {
-    args.push(...extraArgs.split(/\s+/).filter(Boolean));
+    args.push(...splitArgs(extraArgs));
   }
   return args;
 }
@@ -76,7 +103,6 @@ export async function launchSession(
   projectPath: string | undefined,
   flags: string[] | undefined,
   extraArgs: string | undefined,
-  onDone: () => void,
 ): Promise<ClaudeSession> {
   const claudeArgs = buildClaudeArgs(title, projectPath, flags, extraArgs);
 
@@ -94,8 +120,6 @@ export async function launchSession(
     void child;
   }
 
-  void onDone;
-
   return {
     kill: () => {
       // Can't kill the terminal tab from here — user closes it manually
@@ -105,7 +129,6 @@ export async function launchSession(
 
 export async function resumeSession(
   sessionId: string,
-  onDone: () => void,
 ): Promise<ClaudeSession> {
   const resumeTitle = `Claude: resume ${sessionId.slice(0, 8)}`;
 
@@ -132,8 +155,6 @@ export async function resumeSession(
     const child = await cmd.spawn();
     void child;
   }
-
-  void onDone;
 
   return {
     kill: () => {},

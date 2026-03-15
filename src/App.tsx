@@ -69,11 +69,13 @@ function App() {
   );
 
   const save = async (updated: TodoFile) => {
+    const previous = todos;
     setTodos(updated);
     try {
       await saveTodos(updated);
       setError(null);
     } catch (e) {
+      setTodos(previous);
       setError(String(e));
     }
   };
@@ -90,6 +92,7 @@ function App() {
   const createTodo = async () => {
     if (!newTitle.trim() || !todos) return;
     const item: TodoItem = {
+      id: crypto.randomUUID(),
       title: newTitle.trim(),
       created: todayString(),
     };
@@ -135,11 +138,9 @@ function App() {
 
   const deleteTodo = async (status: TodoStatus, index: number) => {
     if (!todos) return;
-    const updated = { ...todos };
-    const list = [...getList(updated, status)];
+    const list = [...getList(todos, status)];
     list.splice(index, 1);
-    setList(updated, status, list);
-    await save(updated);
+    await save(withList(todos, status, list));
   };
 
   const moveTodo = async (
@@ -148,10 +149,9 @@ function App() {
     toStatus: TodoStatus,
   ) => {
     if (!todos) return;
-    const updated = { ...todos };
-    const fromList = [...getList(updated, fromStatus)];
+    const fromList = [...getList(todos, fromStatus)];
     const [item] = fromList.splice(index, 1);
-    setList(updated, fromStatus, fromList);
+    let updated = withList(todos, fromStatus, fromList);
 
     const movedItem = { ...item };
     if (toStatus === "in-progress" && !movedItem.started) {
@@ -162,7 +162,7 @@ function App() {
     }
 
     const toList = [...getList(updated, toStatus), movedItem];
-    setList(updated, toStatus, toList);
+    updated = withList(updated, toStatus, toList);
     await save(updated);
   };
 
@@ -176,11 +176,9 @@ function App() {
       setEditingKey(null);
       return;
     }
-    const updated = { ...todos };
-    const list = [...getList(updated, status)];
+    const list = [...getList(todos, status)];
     list[index] = { ...list[index], title: editTitle.trim() };
-    setList(updated, status, list);
-    await save(updated);
+    await save(withList(todos, status, list));
     setEditingKey(null);
   };
 
@@ -195,10 +193,10 @@ function App() {
   const launchClaude = async (item: TodoItem) => {
     try {
       if (item.sessionId) {
-        await resumeSession(item.sessionId, () => {});
+        await resumeSession(item.sessionId);
       } else {
         const dir = item.directory || item.project;
-        await launchSession(item.title, dir, item.flags, item.extraArgs, () => {});
+        await launchSession(item.title, dir, item.flags, item.extraArgs);
       }
     } catch (e) {
       setError(`Failed to launch Claude: ${e}`);
@@ -300,7 +298,7 @@ function App() {
 
           <div className="form-row">
             <label>Flags</label>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div className="flag-toggles">
               <button
                 type="button"
                 className={`flag-toggle${formFlags.includes("--dangerously-skip-permissions") ? " active" : ""}`}
@@ -449,15 +447,14 @@ function Section({
       </div>
       <ul className="todo-list">
         {items.map((item, i) => {
-          const key = `${status}-${i}`;
-          const isEditing = editingKey === key;
+          const isEditing = editingKey === item.id;
           const running = isRunning(item);
           const itemActions =
             typeof actions === "function" ? actions(item) : actions;
 
           return (
             <li
-              key={key}
+              key={item.id}
               className={`todo-item${isDone ? " done" : ""}${running ? " running" : ""}`}
             >
               {running && <span className="status-dot running" />}
@@ -477,7 +474,7 @@ function Section({
               ) : (
                 <span
                   className={`todo-title${isDone ? " done" : ""}`}
-                  onDoubleClick={() => onStartEdit(key, item.title)}
+                  onDoubleClick={() => onStartEdit(item.id, item.title)}
                 >
                   {item.title}
                   {(item.directory || item.project) && (
@@ -536,17 +533,14 @@ function getList(file: TodoFile, status: TodoStatus): TodoItem[] {
   }
 }
 
-function setList(file: TodoFile, status: TodoStatus, list: TodoItem[]) {
+function withList(file: TodoFile, status: TodoStatus, list: TodoItem[]): TodoFile {
   switch (status) {
     case "not-started":
-      file.notStarted = list;
-      break;
+      return { ...file, notStarted: list };
     case "in-progress":
-      file.inProgress = list;
-      break;
+      return { ...file, inProgress: list };
     case "done":
-      file.done = list;
-      break;
+      return { ...file, done: list };
   }
 }
 

@@ -2,17 +2,19 @@ import { describe, it, expect } from "vitest";
 import { parseTodoFile, serializeTodoFile, todayString } from "./storage";
 import { TodoFile } from "./types";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 const SAMPLE = `# Claude Todo
 
 ## Not Started
-- [ ] Refactor auth module | project:/Users/nick/myapp | created:2026-03-14
-- [ ] Write integration tests | project:/Users/nick/myapp | created:2026-03-13
+- [ ] Refactor auth module | id:aaa-1 | project:/Users/nick/myapp | created:2026-03-14
+- [ ] Write integration tests | id:aaa-2 | project:/Users/nick/myapp | created:2026-03-13
 
 ## In Progress
-- [ ] Fix login bug | project:/Users/nick/myapp | session:abc123 | started:2026-03-14
+- [ ] Fix login bug | id:bbb-1 | project:/Users/nick/myapp | session:abc123 | started:2026-03-14
 
 ## Done
-- [x] Set up CI pipeline | project:/Users/nick/myapp | session:ghi789 | completed:2026-03-12
+- [x] Set up CI pipeline | id:ccc-1 | project:/Users/nick/myapp | session:ghi789 | completed:2026-03-12
 `;
 
 describe("parseTodoFile", () => {
@@ -28,6 +30,13 @@ describe("parseTodoFile", () => {
     expect(result.notStarted[0].title).toBe("Refactor auth module");
     expect(result.inProgress[0].title).toBe("Fix login bug");
     expect(result.done[0].title).toBe("Set up CI pipeline");
+  });
+
+  it("parses id fields", () => {
+    const result = parseTodoFile(SAMPLE);
+    expect(result.notStarted[0].id).toBe("aaa-1");
+    expect(result.inProgress[0].id).toBe("bbb-1");
+    expect(result.done[0].id).toBe("ccc-1");
   });
 
   it("parses metadata fields", () => {
@@ -62,8 +71,13 @@ describe("parseTodoFile", () => {
     expect(result.notStarted[0].project).toBeUndefined();
   });
 
+  it("assigns UUID to items without id field", () => {
+    const result = parseTodoFile("## Not Started\n- [ ] Legacy task\n");
+    expect(result.notStarted[0].id).toMatch(UUID_RE);
+  });
+
   it("handles Windows paths with colons in directory", () => {
-    const input = `## Not Started\n- [ ] Task | directory:C:\\Users\\nick\\app | created:2026-03-14\n`;
+    const input = `## Not Started\n- [ ] Task | id:t1 | directory:C:\\Users\\nick\\app | created:2026-03-14\n`;
     const result = parseTodoFile(input);
     expect(result.notStarted[0].directory).toBe("C:\\Users\\nick\\app");
   });
@@ -92,16 +106,16 @@ describe("parseTodoFile", () => {
 describe("serializeTodoFile", () => {
   it("produces valid markdown", () => {
     const file: TodoFile = {
-      notStarted: [{ title: "Task A", project: "/foo", created: "2026-03-14" }],
-      inProgress: [{ title: "Task B", sessionId: "abc", started: "2026-03-14" }],
-      done: [{ title: "Task C", completed: "2026-03-12" }],
+      notStarted: [{ id: "id-a", title: "Task A", project: "/foo", created: "2026-03-14" }],
+      inProgress: [{ id: "id-b", title: "Task B", sessionId: "abc", started: "2026-03-14" }],
+      done: [{ id: "id-c", title: "Task C", completed: "2026-03-12" }],
     };
     const output = serializeTodoFile(file);
     expect(output).toContain("# Claude Todo");
     expect(output).toContain("## Not Started");
-    expect(output).toContain("- [ ] Task A | project:/foo | created:2026-03-14");
-    expect(output).toContain("- [ ] Task B | session:abc | started:2026-03-14");
-    expect(output).toContain("- [x] Task C | completed:2026-03-12");
+    expect(output).toContain("- [ ] Task A | id:id-a | project:/foo | created:2026-03-14");
+    expect(output).toContain("- [ ] Task B | id:id-b | session:abc | started:2026-03-14");
+    expect(output).toContain("- [x] Task C | id:id-c | completed:2026-03-12");
   });
 
   it("handles empty sections", () => {
@@ -116,7 +130,7 @@ describe("serializeTodoFile", () => {
 describe("parseTodoFile — new fields", () => {
   it("parses directory, flags, and extraArgs", () => {
     const input = `## Not Started
-- [ ] Build feature | directory:C:/Users/nick/myapp | flags:--dangerously-skip-permissions,--verbose | extraArgs:--model opus | created:2026-03-14
+- [ ] Build feature | id:bf-1 | directory:C:/Users/nick/myapp | flags:--dangerously-skip-permissions,--verbose | extraArgs:--model opus | created:2026-03-14
 `;
     const result = parseTodoFile(input);
     expect(result.notStarted[0].directory).toBe("C:/Users/nick/myapp");
@@ -126,7 +140,7 @@ describe("parseTodoFile — new fields", () => {
 
   it("handles items with directory but no flags", () => {
     const input = `## In Progress
-- [ ] Task | directory:/projects/foo | started:2026-03-14
+- [ ] Task | id:t-1 | directory:/projects/foo | started:2026-03-14
 `;
     const result = parseTodoFile(input);
     expect(result.inProgress[0].directory).toBe("/projects/foo");
@@ -139,6 +153,7 @@ describe("serializeTodoFile — new fields", () => {
   it("serializes directory, flags, and extraArgs", () => {
     const file: TodoFile = {
       notStarted: [{
+        id: "tx-1",
         title: "Task X",
         directory: "C:/projects/app",
         flags: ["--dangerously-skip-permissions"],
@@ -156,7 +171,7 @@ describe("serializeTodoFile — new fields", () => {
 
   it("does not serialize empty flags array", () => {
     const file: TodoFile = {
-      notStarted: [{ title: "No flags", flags: [] }],
+      notStarted: [{ id: "nf-1", title: "No flags", flags: [] }],
       inProgress: [],
       done: [],
     };
@@ -166,7 +181,7 @@ describe("serializeTodoFile — new fields", () => {
 });
 
 describe("round-trip", () => {
-  it("parse → serialize → parse produces same data", () => {
+  it("parse → serialize → parse preserves data", () => {
     const first = parseTodoFile(SAMPLE);
     const serialized = serializeTodoFile(first);
     const second = parseTodoFile(serialized);
@@ -176,6 +191,7 @@ describe("round-trip", () => {
   it("round-trips items with directory, flags, and extraArgs", () => {
     const file: TodoFile = {
       notStarted: [{
+        id: "rt-1",
         title: "Task X",
         directory: "C:/projects/app",
         flags: ["--dangerously-skip-permissions"],
@@ -193,14 +209,14 @@ describe("round-trip", () => {
   it("serialize → parse → serialize produces same text", () => {
     const file: TodoFile = {
       notStarted: [
-        { title: "A", project: "/app", created: "2026-01-01" },
-        { title: "B", created: "2026-01-02" },
+        { id: "s1", title: "A", project: "/app", created: "2026-01-01" },
+        { id: "s2", title: "B", created: "2026-01-02" },
       ],
       inProgress: [
-        { title: "C", project: "/app", sessionId: "s1", started: "2026-01-03" },
+        { id: "s3", title: "C", project: "/app", sessionId: "s1", started: "2026-01-03" },
       ],
       done: [
-        { title: "D", project: "/app", sessionId: "s2", completed: "2026-01-04" },
+        { id: "s4", title: "D", project: "/app", sessionId: "s2", completed: "2026-01-04" },
       ],
     };
     const text1 = serializeTodoFile(file);
@@ -212,6 +228,7 @@ describe("round-trip", () => {
   it("round-trips all fields across all sections", () => {
     const file: TodoFile = {
       notStarted: [{
+        id: "full-1",
         title: "Full item",
         project: "/old/path",
         directory: "C:/new/path",
@@ -220,6 +237,7 @@ describe("round-trip", () => {
         created: "2026-03-14",
       }],
       inProgress: [{
+        id: "full-2",
         title: "Active task",
         directory: "/projects/foo",
         flags: ["--dangerously-skip-permissions"],
@@ -227,6 +245,7 @@ describe("round-trip", () => {
         started: "2026-03-14",
       }],
       done: [{
+        id: "full-3",
         title: "Finished task",
         directory: "/projects/bar",
         extraArgs: "--effort high",

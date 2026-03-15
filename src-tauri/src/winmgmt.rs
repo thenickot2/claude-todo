@@ -1,4 +1,4 @@
-use serde::Serialize;
+use super::WindowInfo;
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
 use windows::core::BOOL;
@@ -7,13 +7,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
     IsWindowVisible, PostMessageW, SetForegroundWindow, WM_CLOSE,
 };
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WindowInfo {
-    pub hwnd: isize,
-    pub title: String,
-    pub pid: u32,
-}
 
 unsafe extern "system" fn enum_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
     let windows = &mut *(lparam.0 as *mut Vec<WindowInfo>);
@@ -60,11 +53,7 @@ pub fn find_claude_windows() -> Vec<WindowInfo> {
 
     windows
         .into_iter()
-        .filter(|w| {
-            let t = w.title.to_lowercase();
-            t.contains("claude") || t.contains("cmd") || t.contains("windows terminal")
-                || t.contains("powershell") || t.contains("bash")
-        })
+        .filter(|w| w.title.contains("Claude: "))
         .collect()
 }
 

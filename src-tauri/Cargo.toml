@@ -2,9 +2,9 @@
 name = "claude-todo"
 version = "0.1.0"
 description = "A native to-do list app that tracks and controls Claude Code terminal sessions"
-authors = [""]
-license = ""
-repository = ""
+authors = ["Nicholas Tsianos"]
+license = "MIT"
+repository = "https://github.com/thenickot2/claude-todo"
 edition = "2021"
 rust-version = "1.77.2"
 

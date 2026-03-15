@@ -35,17 +35,27 @@ async function getLockPath(): Promise<string> {
 
 async function acquireLock(): Promise<void> {
   const lockPath = await getLockPath();
-  // Simple lock: write a lock file, fail if it already exists
-  // In practice, stale locks from crashes are handled by timeout
   for (let i = 0; i < 10; i++) {
-    if (await exists(lockPath)) {
+    try {
+      await writeTextFile(lockPath, String(Date.now()), { createNew: true });
+      return; // Lock acquired
+    } catch {
+      // Lock file exists — check if stale (>5 seconds old)
+      try {
+        const content = await readTextFile(lockPath);
+        const lockTime = parseInt(content, 10);
+        if (Date.now() - lockTime > 5000) {
+          await remove(lockPath);
+          continue;
+        }
+      } catch {
+        // Lock was removed between our check, retry
+        continue;
+      }
       await new Promise((r) => setTimeout(r, 100));
-      continue;
     }
-    await writeTextFile(lockPath, String(Date.now()));
-    return;
   }
-  // Force acquire after timeout (stale lock)
+  // Force acquire after all retries exhausted (stale lock)
   await writeTextFile(lockPath, String(Date.now()));
 }
 
@@ -86,7 +96,7 @@ async function migrateOldDir(): Promise<void> {
     // Clean up old directory
     await remove(oldDir, { recursive: true });
   } catch {
-    // Migration is best-effort
+    // Migration is best-effort — old dir may not exist or may lack permissions
   }
 }
 
@@ -130,8 +140,8 @@ export async function watchTodos(
       try {
         const content = await readTextFile(path);
         onChange(parseTodoFile(content));
-      } catch {
-        // File might be mid-write, ignore
+      } catch (e) {
+        console.warn("Failed to reload todos after file change:", e);
       }
     }
   }, { delayMs: 500 });

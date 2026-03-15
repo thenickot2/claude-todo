@@ -1,20 +1,10 @@
-use serde::Serialize;
+use super::WindowInfo;
 use std::process::Command;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WindowInfo {
-    pub hwnd: isize, // window id on macOS
-    pub title: String,
-    pub pid: u32,
-}
 
 /// Find terminal windows that likely contain Claude sessions.
 pub fn find_claude_windows() -> Vec<WindowInfo> {
     let mut windows = find_all_windows();
-    windows.retain(|w| {
-        let t = w.title.to_lowercase();
-        t.contains("claude") || t.contains("bash") || t.contains("zsh") || t.contains("terminal")
-    });
+    windows.retain(|w| w.title.contains("Claude: "));
     windows
 }
 

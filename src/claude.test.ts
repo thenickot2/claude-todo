@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { terminalTitle, buildClaudeArgs, buildWtArgs } from "./claude";
+import { terminalTitle, buildClaudeArgs, buildWtArgs, splitArgs } from "./claude";
 
 describe("terminalTitle", () => {
   it("prefixes with Claude:", () => {
@@ -68,6 +68,38 @@ describe("buildClaudeArgs", () => {
   it("ignores empty flags array", () => {
     const args = buildClaudeArgs("Task", undefined, [], undefined);
     expect(args).toEqual(["--name", "Task"]);
+  });
+});
+
+describe("splitArgs", () => {
+  it("splits simple whitespace-separated args", () => {
+    expect(splitArgs("--model opus")).toEqual(["--model", "opus"]);
+  });
+
+  it("handles double-quoted strings", () => {
+    expect(splitArgs('--prompt "fix the bug"')).toEqual(["--prompt", "fix the bug"]);
+  });
+
+  it("handles single-quoted strings", () => {
+    expect(splitArgs("--prompt 'fix the bug'")).toEqual(["--prompt", "fix the bug"]);
+  });
+
+  it("handles multiple spaces between args", () => {
+    expect(splitArgs("  --model   opus  ")).toEqual(["--model", "opus"]);
+  });
+
+  it("returns empty array for empty string", () => {
+    expect(splitArgs("")).toEqual([]);
+  });
+
+  it("returns empty array for whitespace-only string", () => {
+    expect(splitArgs("   ")).toEqual([]);
+  });
+
+  it("handles mixed quoted and unquoted args", () => {
+    expect(splitArgs('--model opus --prompt "hello world" --verbose')).toEqual([
+      "--model", "opus", "--prompt", "hello world", "--verbose",
+    ]);
   });
 });
 

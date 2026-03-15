@@ -1,6 +1,7 @@
 export type TodoStatus = "not-started" | "in-progress" | "done";
 
 export interface TodoItem {
+  id: string;
   title: string;
   project?: string;
   directory?: string;
