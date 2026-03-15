@@ -9,6 +9,7 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
+# Update version in all three config files
 node -e "
 const fs = require('fs');
 const v = '$VERSION';
@@ -29,13 +30,17 @@ cargo = cargo.replace(/^version = \".*\"/m, 'version = \"' + v + '\"');
 fs.writeFileSync('src-tauri/Cargo.toml', cargo);
 "
 
+# Generate changelog
+git-cliff --tag "v$VERSION" -o CHANGELOG.md
+
 echo "Bumped version to $VERSION in:"
 echo "  - package.json"
 echo "  - src-tauri/tauri.conf.json"
 echo "  - src-tauri/Cargo.toml"
+echo "  - CHANGELOG.md"
 echo ""
 echo "Next steps:"
-echo "  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml"
-echo "  git commit -m 'chore: bump version to $VERSION'"
+echo "  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml CHANGELOG.md"
+echo "  git commit -m 'chore(release): v$VERSION'"
 echo "  git tag v$VERSION"
 echo "  git push origin main --tags"
