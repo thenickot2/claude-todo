@@ -1,8 +1,11 @@
 import { Command } from "@tauri-apps/plugin-shell";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface ClaudeSession {
   kill: () => void;
 }
+
+const IS_MACOS = navigator.platform.startsWith("Mac");
 
 export function terminalTitle(taskTitle: string): string {
   return `Claude: ${taskTitle}`;
@@ -28,7 +31,7 @@ export function buildClaudeArgs(
   return args;
 }
 
-/** Build the full `wt` arguments including the claude subcommand. */
+/** Build the full `wt` arguments including the claude subcommand (Windows only). */
 export function buildWtArgs(
   title: string,
   projectPath: string | undefined,
@@ -50,11 +53,23 @@ export function buildWtArgs(
   return args;
 }
 
+/** Build a shell command string from claude args (for macOS terminal launch). */
+function buildClaudeCommand(claudeArgs: string[]): string {
+  return ["claude", ...claudeArgs]
+    .map((a) => {
+      // Quote args that contain spaces or special chars
+      if (/["\s]/.test(a)) {
+        return `"${a.replace(/"/g, '\\"')}"`;
+      }
+      return a;
+    })
+    .join(" ");
+}
+
 /**
- * Launch Claude Code in a new Windows Terminal tab.
- * The `wt` command opens the terminal; `claude` runs interactively inside it.
- * We use a wrapper approach: spawn `wt` which exits immediately after opening
- * the tab, so we can't track session completion from the wt process.
+ * Launch Claude Code in a new terminal window/tab.
+ * On Windows: uses Windows Terminal (`wt`) via shell plugin.
+ * On macOS: uses a Tauri command that launches via AppleScript (iTerm2 or Terminal.app).
  */
 export async function launchSession(
   title: string,
@@ -64,22 +79,21 @@ export async function launchSession(
   onDone: () => void,
 ): Promise<ClaudeSession> {
   const claudeArgs = buildClaudeArgs(title, projectPath, flags, extraArgs);
-  const wtArgs = buildWtArgs(title, projectPath, claudeArgs);
 
-  const cmd = Command.create("wt", wtArgs);
+  if (IS_MACOS) {
+    const command = buildClaudeCommand(claudeArgs);
+    await invoke("launch_terminal_session", {
+      title: terminalTitle(title),
+      command,
+      workingDir: projectPath ?? null,
+    });
+  } else {
+    const wtArgs = buildWtArgs(title, projectPath, claudeArgs);
+    const cmd = Command.create("wt", wtArgs);
+    const child = await cmd.spawn();
+    void child;
+  }
 
-  cmd.on("close", () => {
-    // wt exits immediately after spawning the tab, so this fires right away.
-    // We can't track session completion from here — the user will manually
-    // mark the todo as done, or we detect it via session polling later.
-  });
-
-  const child = await cmd.spawn();
-
-  // Since wt exits immediately, call onDone after a brief delay
-  // so the UI can register that the launch succeeded.
-  // The session stays "running" until the user moves it to Done.
-  void child;
   void onDone;
 
   return {
@@ -93,21 +107,32 @@ export async function resumeSession(
   sessionId: string,
   onDone: () => void,
 ): Promise<ClaudeSession> {
-  const wtArgs = [
-    "--window",
-    "new",
-    "new-tab",
-    "--title",
-    `Claude: resume ${sessionId.slice(0, 8)}`,
-    "--suppressApplicationTitle",
-    "claude",
-    "--resume",
-    sessionId,
-  ];
+  const resumeTitle = `Claude: resume ${sessionId.slice(0, 8)}`;
 
-  const cmd = Command.create("wt", wtArgs);
-  const child = await cmd.spawn();
-  void child;
+  if (IS_MACOS) {
+    const command = `claude --resume ${sessionId}`;
+    await invoke("launch_terminal_session", {
+      title: resumeTitle,
+      command,
+      workingDir: null,
+    });
+  } else {
+    const wtArgs = [
+      "--window",
+      "new",
+      "new-tab",
+      "--title",
+      resumeTitle,
+      "--suppressApplicationTitle",
+      "claude",
+      "--resume",
+      sessionId,
+    ];
+    const cmd = Command.create("wt", wtArgs);
+    const child = await cmd.spawn();
+    void child;
+  }
+
   void onDone;
 
   return {

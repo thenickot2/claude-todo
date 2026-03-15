@@ -83,11 +83,11 @@ The app reads/writes this file directly — no database, no server.
 - [x] Map running `claude` processes to todo items via session ID
 
 ### Phase 5 — macOS Support
-- [ ] Build macOS Tauri target
-- [ ] macOS window discovery (Accessibility API / `CGWindowListCopyWindowInfo`)
-- [ ] iTerm2 adapter (AppleScript — tab-level focus)
-- [ ] Terminal.app adapter (AppleScript)
-- [ ] macOS permissions flow (guide user through Accessibility permission grant)
+- [x] Build macOS Tauri target
+- [x] macOS window discovery (AppleScript via `osascript` — lists Terminal.app & iTerm2 windows)
+- [x] iTerm2 adapter (AppleScript — window creation, focus, close)
+- [x] Terminal.app adapter (AppleScript — window creation, focus, close)
+- [x] macOS permissions flow (`check_accessibility_permission` command; macOS auto-prompts on first use)
 
 ### Phase 6 — Polish & Ship
 - [ ] Keyboard shortcuts for rapid context switching
@@ -108,7 +108,7 @@ The app reads/writes this file directly — no database, no server.
 | Frontend | React + TypeScript |
 | Storage | Markdown file (`~/.claude-todo/todos.md`) |
 | Window mgmt (Win) | `windows-rs` crate (`EnumWindows`, `SetForegroundWindow`) |
-| Window mgmt (Mac) | `core-foundation` + AppleScript |
+| Window mgmt (Mac) | AppleScript via `osascript` (Terminal.app + iTerm2) |
 | Claude integration | Claude Code CLI (`--name`, `--resume`, `stream-json`) |
 
 ## Development Order

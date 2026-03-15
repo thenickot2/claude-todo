@@ -40,7 +40,8 @@ src-tauri/                    # Backend (Rust)
 ├── src/
 │   ├── main.rs               # Binary entry point (calls lib::run)
 │   ├── lib.rs                 # Tauri builder — registers plugins + commands
-│   └── winmgmt.rs            # Windows-only: EnumWindows/SetForegroundWindow via windows-rs
+│   ├── winmgmt.rs            # Windows-only: EnumWindows/SetForegroundWindow via windows-rs
+│   └── macmgmt.rs            # macOS-only: AppleScript via osascript for window/terminal mgmt
 ├── capabilities/default.json  # Tauri permission scopes (fs, shell, dialog, watch)
 ├── tauri.conf.json            # App config, shell command scopes (claude, wt)
 └── Cargo.toml                 # Rust dependencies
@@ -81,10 +82,10 @@ Scoped in `src-tauri/capabilities/default.json`. Each fs/shell operation needs a
 - **No component files** — `App.tsx` contains all components. Extract only when a component exceeds ~100 lines or is reused across files.
 - **Pure logic in `storage.ts`** — no imports from Tauri. This keeps it testable without mocking.
 - **I/O in `fileio.ts`** — all Tauri FS calls go here. Components never call Tauri FS directly.
-- **Platform code** — Windows-specific Rust code in `winmgmt.rs` behind `#[cfg(target_os = "windows")]`. macOS code will go in a `macmgmt.rs` equivalent. `lib.rs` commands use `cfg` blocks to dispatch.
+- **Platform code** — Windows-specific Rust code in `winmgmt.rs` behind `#[cfg(target_os = "windows")]`. macOS code in `macmgmt.rs` behind `#[cfg(target_os = "macos")]` uses AppleScript via `osascript`. `lib.rs` commands use `cfg` blocks to dispatch. TypeScript detects platform via `navigator.platform` for launch logic.
 - **CSS** — single `styles.css` file, warm Notion-inspired palette with CSS custom properties (`--fg-primary`, `--bg-surface`, etc.), system font stack, 8px spacing grid, 3px border radius. Class naming is flat (`.todo-item`, `.btn-sm`). Dark mode via `prefers-color-scheme`.
 - **Tests** — vitest for TypeScript. Test files live next to source (`storage.test.ts`). Run with `npx vitest run`. See [TESTING.md](TESTING.md) for full testing conventions (Rust, Tauri mocking, what to test vs skip).
 
 ## Current State
 
-Phases 0–4 complete (setup, storage, UI, Claude integration, Windows window management). UI polish pass done: warm palette, progressive-disclosure task creation form (directory picker, flag toggles, extra args), running-window detection with status dots, enhanced item display with metadata badges. Data stored in `appDataDir()`. See `PLAN.md` for full progress tracker. Remaining: Phase 5 (macOS), Phase 6 (ship).
+Phases 0–5 complete (setup, storage, UI, Claude integration, Windows window management, macOS support). UI polish pass done: warm palette, progressive-disclosure task creation form (directory picker, flag toggles, extra args), running-window detection with status dots, enhanced item display with metadata badges. Data stored in `appDataDir()`. See `PLAN.md` for full progress tracker. Remaining: Phase 5 (macOS), Phase 6 (ship).

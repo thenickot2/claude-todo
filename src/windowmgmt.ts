@@ -25,3 +25,8 @@ export async function closeTerminalByTitle(
 ): Promise<boolean> {
   return invoke<boolean>("close_terminal_by_title", { titleSubstring });
 }
+
+/** Check if macOS accessibility/automation permissions are available. Always true on Windows. */
+export async function checkAccessibilityPermission(): Promise<boolean> {
+  return invoke<boolean>("check_accessibility_permission");
+}
